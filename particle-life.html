@@ -11,7 +11,7 @@
     
     <div>Force Scale: <input type="range" id="forceScale" min="1" max="50" value="15" style="width: 150px;"> <span id="forceScaleVal">4</span></div>
     
-    <div>Repulsion Scale: <input type="range" id="repulsionScale" min="1" max="20" value="2" style="width: 150px;"><span id="repulsionScaleVal">0.02</span></div>
+    <div>Repulsion Scale: <input type="range" id="repulsionScale" min="1" max="100" value="35" style="width: 150px;"><span id="repulsionScaleVal">0.02</span></div>
     <div>LFOA: <input type="range" id="lfoAmplitude" min="0" max="100" value="30" style="width:150px">
      <span id="lfoAVal">0.30</span></div>
     <div>LFOS: <input type="range" id="lfoSpeed" min="1" max="200" value="50" style="width:150px">
@@ -225,7 +225,7 @@ document.getElementById('reset').addEventListener('click', () => {
             lfoAmplitude: 0.3,
             lfoSpeed: 0.5,
             time:0.0,
-            repulsionScale: 0.02,
+            repulsionScale: 0.35,
             n_particles: 2500,
             beta: 0.3,
             damping: 0.7,
