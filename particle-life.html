@@ -9,9 +9,9 @@
     <div style="position: absolute; top: 10px; left: 10px; color: white; font-family: monospace; background: rgba(0,0,0,0.5); padding: 10px; z-index: 1000;">
     <div>Particles: <span id="particleCount">2000</span></div>
     
-    <div>Force Scale: <input type="range" id="forceScale" min="1" max="50" value="15" style="width: 150px;"> <span id="forceScaleVal">4</span></div>
+    <div>Force Scale: <input type="range" id="forceScale" min="1" max="50" value="15" style="width: 150px;"> <span id="forceScaleVal">1.5</span></div>
     
-    <div>Repulsion Scale: <input type="range" id="repulsionScale" min="1" max="100" value="35" style="width: 150px;"><span id="repulsionScaleVal">0.02</span></div>
+    <div>Repulsion Scale: <input type="range" id="repulsionScale" min="1" max="100" value="35" style="width: 150px;"><span id="repulsionScaleVal">0.35 </span></div>
     <div>LFOA: <input type="range" id="lfoAmplitude" min="0" max="100" value="30" style="width:150px">
      <span id="lfoAVal">0.30</span></div>
     <div>LFOS: <input type="range" id="lfoSpeed" min="1" max="200" value="50" style="width:150px">
@@ -205,7 +205,7 @@ document.getElementById('reset').addEventListener('click', () => {
                                     ry = ry > 0 ? ry - simHeight : ry + simHeight;
                                 }
 
-                                const dist = rx * rx + ry * ry;
+                                dist = rx * rx + ry * ry;
 
                                 if (dist < radiusSq){
                                     neighbors.push(other);
@@ -306,7 +306,7 @@ document.getElementById('reset').addEventListener('click', () => {
 
         function init(){
             sim.particles = [];
-            for (i=0; i<sim.n_particles; i++){
+            for (let i=0; i<sim.n_particles; i++){
                 var position = new Vector2D(Math.random() * simWidth, Math.random() * simHeight);
                 var velocity = new Vector2D(0, 0);
                 // var velocity = new Vector2D((Math.random() - 0.5) * 1.5, (Math.random()-0.5) * 1.5);
