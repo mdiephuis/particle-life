@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>particles</title>
+</head>
+
+<body>
+    <div style="position: absolute; top: 10px; left: 10px; color: white; font-family: monospace; background: rgba(0,0,0,0.5); padding: 10px; z-index: 1000;">
+    <div>Particles: <span id="particleCount">2000</span></div>
+    
+    <div>Force Scale: <input type="range" id="forceScale" min="1" max="50" value="15" style="width: 150px;"> <span id="forceScaleVal">4</span></div>
+    
+    <div>Repulsion Scale: <input type="range" id="repulsionScale" min="1" max="20" value="2" style="width: 150px;"><span id="repulsionScaleVal">0.02</span></div>
+    <div>LFOA: <input type="range" id="lfoAmplitude" min="0" max="100" value="30" style="width:150px">
+     <span id="lfoAVal">0.30</span></div>
+    <div>LFOS: <input type="range" id="lfoSpeed" min="1" max="200" value="50" style="width:150px">
+     <span id="lfoSVal">0.50</span></div>
+    <div>Damping: <input type="range" id="damping" min="80" max="99" value="70" style="width: 150px;"> <span id="dampingVal">0.70</span></div>
+    <div>Beta: <input type="range" id="beta" min="10" max="50" value="30" style="width: 150px;"> <span id="betaVal">0.30</span></div>
+    <button id="randomize">Randomize Matrix</button>
+    <button id="reset">Reset Positions</button>
+</div>
+
+<script>
+// After sim definition, add event listeners:
+document.getElementById('forceScale').addEventListener('input', (e) => {
+    sim.forcescale = parseInt(e.target.value) / 10;
+    document.getElementById('forceScaleVal').textContent = sim.forcescale;
+});
+
+document.getElementById('repulsionScale').addEventListener('input', (e) => {
+    sim.repulsionScale = parseInt(e.target.value) / 100;
+    document.getElementById('repulsionScaleVal').textContent = sim.repulsionScale;
+});
+
+document.getElementById('damping').addEventListener('input', (e) => {
+    sim.damping = parseInt(e.target.value) / 100;
+    document.getElementById('dampingVal').textContent = sim.damping.toFixed(2);
+});
+
+document.getElementById('beta').addEventListener('input', (e) => {
+    sim.beta = parseInt(e.target.value) / 100;
+    document.getElementById('betaVal').textContent = sim.beta.toFixed(2);
+});
+
+document.getElementById('randomize').addEventListener('click', () => {
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            if (i !== j) {
+                attractionMatrix[i][j] = Math.random() * 2 - 1;  // -1 to 1
+            }
+        }
+    }
+    console.log('New matrix:', attractionMatrix);
+});
+
+document.getElementById('lfoAmplitude').addEventListener('input', (e) => {
+    sim.lfoAmplitude = parseInt(e.target.value) / 100;
+    document.getElementById('lfoAVal').textContent = sim.lfoAmplitude.toFixed(2);
+});
+
+document.getElementById('lfoSpeed').addEventListener('input', (e) => {
+    sim.lfoSpeed = parseInt(e.target.value) / 100;
+    document.getElementById('lfoSVal').textContent = sim.lfoSpeed.toFixed(2);
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+    init();
+});
+</script>
+    <canvas id="myCanvas" style="border:2px solid; background-color: black;"></canvas>
+    <script>
+        // fill entire canvas
+        var canvas = document.getElementById('myCanvas');
+        var c = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth - 20;
+        canvas.height = window.innerHeight - 100;
+
+        // Browser, (0, 0) is top left corner.
+        // For our sim, (0, 0) is left bottom. 
+
+        var simMinWidth = 2.0;
+        var cScale = Math.min(canvas.width, canvas.height) / simMinWidth;
+
+        var simWidth = canvas.width / cScale;
+        var simHeight = canvas.height / cScale;
+
+        // From simulation x-coord to browser x-coord
+        function cX(x) {
+            return x * cScale;
+        }
+
+        // From simulation y-coord to browser y-coord
+        function cY(y) {
+            return canvas.height - y * cScale;
+        }
+
+        // utility class for vector math
+        class Vector2D {
+            constructor(x = 0.0, y=0.0) {
+                this.x = x;
+                this.y = y;
+            }
+
+            set(v){
+                this.x = v.x;
+                this.y = v.y;
+            }
+
+            clone() {
+                return new Vector2D(this.x, this.y);
+            }
+
+            add(v, s=1.0){
+                this.x += v.x * s;
+                this.y += v.y * s;
+            }
+
+            sub(a, b){
+                this.x = a.x - b.x;
+                this.y = a.y - b.y;
+                return this;
+            }
+
+            length(){
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+        }
+
+        class SpatialHash {
+            // Toroidal world
+            constructor(cellSize, worldWidth, worldHeight){
+                this.cellSize = cellSize;
+                this.cols = Math.ceil(worldWidth / cellSize);
+                this.rows = Math.ceil(worldHeight / cellSize);
+                this.grid = {};
+            }
+            
+            hash(x, y){
+                // Wrap coordinates first
+                x = ((x % simWidth) + simWidth) % simWidth;
+                y = ((y % simHeight) + simHeight) % simHeight;
+                const col = Math.floor(x / this.cellSize);
+                const row = Math.floor(y / this.cellSize);
+                return `${col},${row}`;
+            }
+            
+            clear() {
+                this.grid = {};
+            }
+            
+            insert(particle){
+                const key = this.hash(particle.position.x, particle.position.y);
+                if (!this.grid[key]) this.grid[key] = [];
+                this.grid[key].push(particle);
+            }
+
+            getNeighbors(particle, radius){
+                const neighbors = [];
+                const dist = [];
+                const all_rx = [];
+                const all_ry = [];
+                const radiusSq = radius * radius;
+                // current cell + surrounding cells
+                const numCells = Math.ceil(radius / this.cellSize);
+
+                // wrap particle position first
+                let px = ((particle.position.x % simWidth) + simWidth) % simWidth;
+                let py = ((particle.position.y % simHeight) + simHeight) % simHeight;
+
+                const centerCol = Math.floor(px / this.cellSize);
+                const centerRow = Math.floor(py / this.cellSize);
+                
+                for (let dx = -numCells; dx <= numCells; dx++){
+                    for (let dy = -numCells; dy <= numCells; dy++){
+
+                        
+                        // Wrap cell coordinates to handle boundaries
+                        let col = (centerCol + dx) % this.cols;
+                        let row = (centerRow + dy) % this.rows;
+            
+                        // Handle negative modulo
+                        if (col < 0) col += this.cols;
+                        if (row < 0) row += this.rows;
+
+                        // Use the calculated wrapped col and row
+                        const key = `${col},${row}`;
+                        const cell = this.grid[key];
+
+                        if (cell) {
+                            for (let other of cell){
+                                if (other === particle) continue;
+
+                                let rx = particle.position.x - other.position.x;
+                                let ry = particle.position.y - other.position.y;
+
+                                // Use shortest path on torus
+                                if (Math.abs(rx) > simWidth / 2) {
+                                    rx = rx > 0 ? rx - simWidth : rx + simWidth;
+                                }
+
+                                if (Math.abs(ry) > simHeight / 2) {
+                                    ry = ry > 0 ? ry - simHeight : ry + simHeight;
+                                }
+
+                                const dist = rx * rx + ry * ry;
+
+                                if (dist < radiusSq){
+                                    neighbors.push(other);
+                                    all_rx.push(rx);
+                                    all_ry.push(ry);
+                                }
+                            }
+                        } 
+                    }
+                }
+                return [neighbors, all_rx, all_ry];
+            }
+        }
+
+
+        var sim = {
+            lfoAmplitude: 0.3,
+            lfoSpeed: 0.5,
+            time:0.0,
+            repulsionScale: 0.02,
+            n_particles: 2500,
+            beta: 0.3,
+            damping: 0.7,
+            frictionHalflife: 0.040,
+            forcescale: 0.4,
+            maxSpeed: 1,
+            rmax: 0.4,
+            dt: 1.0 / 60.0,
+            momentum:0.7,  // 0-1, higher = more momentum
+            particles: [],
+            worldSize: new Vector2D(simWidth, simHeight),
+        };
+
+        // random phase per matrix cell
+        var lfoPhaseMatrix = Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => Math.random() * 2 * Math.PI));
+
+        var attractionMatrix = [
+            [ 0.0,   0.7,  -0.5,   0.3],
+            [-0.6,   0.0,   0.8,  -0.2],
+            [ 0.4,  -0.7,   0.0,   0.6],
+            [ 0.2,   0.5,  -0.4,   0.0]
+        ];
+        // var attractionMatrix = [
+        //     [ 0.0,   0.8,  -0.6,   0.4],
+        //     [-0.7,   0.0,   0.9,  -0.3],
+        //     [ 0.5,  -0.8,   0.0,   0.7],
+        //     [ 0.3,   0.6,  -0.5,   0.0]
+        // ];
+
+
+        function getRandomInt(min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // function getColor(idx){
+        //     const colors = [
+        //         '#00ff41',  // Matrix green
+        //         '#ff006e',  // Hot pink
+        //         '#3a86ff',  // Electric blue
+        //         '#ffbe0b'   // Gold
+        //     ];
+        //     return colors[idx];
+        // }
+
+        // Or HSL for even more control:
+        function getColor(idx){
+            const hues = [120, 300, 240, 35]; // Green, Pink, Blue, Yellow
+            return `hsl(${hues[idx]}, 80%, 60%)`;
+        }
+
+        function force(r, a, beta=0.3){
+            if (r < beta) {
+                return (r / beta - 1) * sim.repulsionScale;
+            }
+            else if (r > beta && r < 1) {
+                return a * (1 - (Math.abs(2 * r - 1 - beta)) / (1 - beta));
+            }
+            else {return 0;}
+        }
+
+        function connection(v1, v2){
+            delta = new Vector2D(v2).sub(v1);
+            return delta
+        }
+
+        class Particle{
+            constructor(position, velocity, ctype){
+                this.ctype = ctype;
+                // vector2d type
+                this.position = position.clone();
+                this.velocity = velocity.clone();
+            }
+        }
+
+        var spatialHash;
+
+        function init(){
+            sim.particles = [];
+            for (i=0; i<sim.n_particles; i++){
+                var position = new Vector2D(Math.random() * simWidth, Math.random() * simHeight);
+                var velocity = new Vector2D(0, 0);
+                // var velocity = new Vector2D((Math.random() - 0.5) * 1.5, (Math.random()-0.5) * 1.5);
+                var ctype = getRandomInt(0, 3);
+                sim.particles.push(new Particle(position, velocity, ctype));
+            }
+            spatialHash = new SpatialHash(sim.rmax, simWidth, simHeight);
+        }
+
+
+        function step(){
+            sim.time += sim.dt;
+            // update LFO phases for attraction
+            var effectiveMatrix = [];
+            for (let i = 0; i < 4; i++) {
+                effectiveMatrix[i] = [];
+                for (let j = 0; j < 4; j++) {
+                    let lfo = Math.sin(sim.time * sim.lfoSpeed * Math.PI * 2 + lfoPhaseMatrix[i][j]);
+                    effectiveMatrix[i][j] = attractionMatrix[i][j] * (1 + sim.lfoAmplitude * lfo);
+                }            
+            }
+
+            updateHashTable();
+            for (let p of sim.particles) {
+                let [neighbors, all_rx, all_ry] = spatialHash.getNeighbors(p, sim.rmax);
+                // Skip if no neighbors
+                if (neighbors.length === 0) continue;
+                var fx = 0;
+                var fy = 0;
+
+                for (let i = 0; i < neighbors.length; i++){
+                    let q = neighbors[i];
+                    let rx = all_rx[i];  // Use cached values!
+                    let ry = all_ry[i];
+                    
+                    let rsq = rx * rx + ry * ry;
+                    let r = Math.sqrt(rsq)
+                    if (r < 0.001) continue; // avoid zero div
+                    // get attraction
+                    let a = effectiveMatrix[p.ctype][q.ctype];
+                    // calc force magnitute
+                    let f = force(r / sim.rmax, a, sim.beta);
+                    // add force contribution, direction x mag
+                    fx += (rx / r) * f;
+                    fy += (ry / r) * f;
+                }
+                // update velocity with (acceleration) forces
+                p.velocity.x = p.velocity.x * sim.damping + fx * sim.dt * sim.forcescale;
+                p.velocity.y = p.velocity.y * sim.damping + fy * sim.dt * sim.forcescale;
+
+                // limit max speed
+                let speed = Math.sqrt(p.velocity.x**2 + p.velocity.y**2);
+                if (speed > sim.maxSpeed){
+                    p.velocity.x = (p.velocity.x / speed) * sim.maxSpeed;
+                    p.velocity.y = (p.velocity.y / speed) * sim.maxSpeed;
+                }
+                // update position
+                p.position.x += p.velocity.x * sim.dt;
+                p.position.y += p.velocity.y * sim.dt;
+
+
+                //     vx += q.velocity.x;
+                //     vy += q.velocity.y;
+                // }
+                // vx /= neighbors.length;
+                // vy /= neighbors.length;
+
+                // // update velocity first
+                // p.velocity.x = sim.momentum * p.velocity.x + (1 - sim.momentum) * vx;
+                // p.velocity.y = sim.momentum * p.velocity.y + (1 - sim.momentum) * vy;
+
+                // // new position using new velocities
+                // p.position.x += sim.dt * p.velocity.x;
+                // p.position.y += sim.dt * p.velocity.y;
+
+
+                // Wrap around boundaries
+                if (p.position.x < 0) p.position.x += simWidth;
+                if (p.position.x > simWidth) p.position.x -= simWidth;
+                if (p.position.y < 0) p.position.y += simHeight;
+                if (p.position.y > simHeight) p.position.y -= simHeight;
+            }
+        }
+
+        
+        function updateHashTable() {
+            // Rebuild grid each frame
+            spatialHash.clear();
+            for (let p of sim.particles) {
+                spatialHash.insert(p);
+            }
+        }        
+
+        // drawing
+        // to fix
+        function draw() {
+            // c.clearRect(0, 0, canvas.width, canvas.height);
+            c.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            c.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw all particles of same color together
+            for (let colorIdx = 0; colorIdx < 4; colorIdx++) {
+                let color = getColor(colorIdx);
+                c.fillStyle = color;
+                c.shadowBlur = 5;
+                c.shadowColor = color;
+
+                c.beginPath();
+                for (let i = 0; i < sim.particles.length; i++) {
+                    let particle = sim.particles[i];
+                    if (particle.ctype === colorIdx) {
+                        c.moveTo(cX(particle.position.x), cY(particle.position.y));
+                        c.arc(cX(particle.position.x), cY(particle.position.y), 
+                              cScale * 0.002, 0, 2 * Math.PI);  // Slightly larger
+                    }
+                }
+                c.fill();
+                c.shadowBlur = 0; // Reset
+            }
+        }
+
+
+        // make browser to call
+        function update() {
+            step();
+            draw();
+            requestAnimationFrame(update);
+        }
+        init();
+        update();
+    </script>
+</body>
+
+</html>
