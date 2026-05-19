@@ -325,7 +325,7 @@ document.getElementById('reset').addEventListener('click', () => {
                 effectiveMatrix[i] = [];
                 for (let j = 0; j < 4; j++) {
                     let lfo = Math.sin(sim.time * sim.lfoSpeed * Math.PI * 2 + lfoPhaseMatrix[i][j]);
-                    effectiveMatrix[i][j] = attractionMatrix[i][j] * (1 + sim.lfoAmplitude * lfo);
+                    effectiveMatrix[i][j] = Math.max(-1, Math.min(1, attractionMatrix[i][j] * (1 + sim.lfoAmplitude * lfo)));
                 }            
             }
 
