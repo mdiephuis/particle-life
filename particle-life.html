@@ -7,7 +7,7 @@
 
 <body>
     <div style="position: absolute; top: 10px; left: 10px; color: white; font-family: monospace; background: rgba(0,0,0,0.5); padding: 10px; z-index: 1000;">
-    <div>Particles: <span id="particleCount">2000</span></div>
+    <div>Particles: <span id="particleCount">2500</span></div>
     
     <div>Force Scale: <input type="range" id="forceScale" min="1" max="50" value="15" style="width: 150px;"> <span id="forceScaleVal">1.5</span></div>
     
@@ -16,7 +16,7 @@
      <span id="lfoAVal">0.30</span></div>
     <div>LFOS: <input type="range" id="lfoSpeed" min="1" max="200" value="50" style="width:150px">
      <span id="lfoSVal">0.50</span></div>
-    <div>Damping: <input type="range" id="damping" min="80" max="99" value="70" style="width: 150px;"> <span id="dampingVal">0.70</span></div>
+    <div>Damping: <input type="range" id="damping" min="10" max="99" value="70" style="width: 150px;"> <span id="dampingVal">0.70</span></div>
     <div>Beta: <input type="range" id="beta" min="10" max="50" value="30" style="width: 150px;"> <span id="betaVal">0.30</span></div>
     <button id="randomize">Randomize Matrix</button>
     <button id="reset">Reset Positions</button>
@@ -247,12 +247,6 @@ document.getElementById('reset').addEventListener('click', () => {
             [ 0.4,  -0.7,   0.0,   0.6],
             [ 0.2,   0.5,  -0.4,   0.0]
         ];
-        // var attractionMatrix = [
-        //     [ 0.0,   0.8,  -0.6,   0.4],
-        //     [-0.7,   0.0,   0.9,  -0.3],
-        //     [ 0.5,  -0.8,   0.0,   0.7],
-        //     [ 0.3,   0.6,  -0.5,   0.0]
-        // ];
 
 
         function getRandomInt(min, max) {
@@ -261,16 +255,6 @@ document.getElementById('reset').addEventListener('click', () => {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        // function getColor(idx){
-        //     const colors = [
-        //         '#00ff41',  // Matrix green
-        //         '#ff006e',  // Hot pink
-        //         '#3a86ff',  // Electric blue
-        //         '#ffbe0b'   // Gold
-        //     ];
-        //     return colors[idx];
-        // }
-
         // Or HSL for even more control:
         function getColor(idx){
             const hues = [120, 300, 240, 35]; // Green, Pink, Blue, Yellow
@@ -278,18 +262,22 @@ document.getElementById('reset').addEventListener('click', () => {
         }
 
         function force(r, a, beta=0.3){
-            if (r < beta) {
-                return (r / beta - 1) * sim.repulsionScale;  // negative → with -= → pushes away ✓
+            // r is normalized (r / sim.rmax)
+            // repulsion (r <= beta) -> negative value so that `fx -= (rx/r)*f` produces repulsion
+            if (r <= beta) {
+                return -(1 - r / beta) * sim.repulsionScale;
             }
-            else if (r > beta && r < 1) {
-                return a * (1 - (Math.abs(2 * r - 1 - beta)) / (1 - beta));
+            // attraction ramps from 0 at r=beta to `a` at r=1
+            else if (r <= 1) {
+                return a * ((r - beta) / (1 - beta));
             }
-            else {return 0;}
+            else {
+                return 0;
+            }
         }
 
         function connection(v1, v2){
-            delta = new Vector2D(v2).sub(v1);
-            return delta
+            return new Vector2D(v2.x - v1.x, v2.y - v1.y);
         }
 
         class Particle{
@@ -331,8 +319,6 @@ document.getElementById('reset').addEventListener('click', () => {
             updateHashTable();
             for (let p of sim.particles) {
                 let [neighbors, all_rx, all_ry] = spatialHash.getNeighbors(p, sim.rmax);
-                // Skip if no neighbors
-                if (neighbors.length === 0) continue;
                 var fx = 0;
                 var fy = 0;
 
@@ -365,22 +351,6 @@ document.getElementById('reset').addEventListener('click', () => {
                 // update position
                 p.position.x += p.velocity.x * sim.dt;
                 p.position.y += p.velocity.y * sim.dt;
-
-
-                //     vx += q.velocity.x;
-                //     vy += q.velocity.y;
-                // }
-                // vx /= neighbors.length;
-                // vy /= neighbors.length;
-
-                // // update velocity first
-                // p.velocity.x = sim.momentum * p.velocity.x + (1 - sim.momentum) * vx;
-                // p.velocity.y = sim.momentum * p.velocity.y + (1 - sim.momentum) * vy;
-
-                // // new position using new velocities
-                // p.position.x += sim.dt * p.velocity.x;
-                // p.position.y += sim.dt * p.velocity.y;
-
 
                 // Wrap around boundaries
                 if (p.position.x < 0) p.position.x += simWidth;
