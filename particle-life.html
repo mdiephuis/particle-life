@@ -279,7 +279,7 @@ document.getElementById('reset').addEventListener('click', () => {
 
         function force(r, a, beta=0.3){
             if (r < beta) {
-                return (1 - r / beta) * sim.repulsionScale;
+                return (r / beta - 1) * sim.repulsionScale;  // negative → with -= → pushes away ✓
             }
             else if (r > beta && r < 1) {
                 return a * (1 - (Math.abs(2 * r - 1 - beta)) / (1 - beta));
@@ -349,8 +349,8 @@ document.getElementById('reset').addEventListener('click', () => {
                     // calc force magnitute
                     let f = force(r / sim.rmax, a, sim.beta);
                     // add force contribution, direction x mag
-                    fx += (rx / r) * f;
-                    fy += (ry / r) * f;
+                    fx -= (rx / r) * f;
+                    fy -= (ry / r) * f;
                 }
                 // update velocity with (acceleration) forces
                 p.velocity.x = p.velocity.x * sim.damping + fx * sim.dt * sim.forcescale;
