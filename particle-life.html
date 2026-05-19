@@ -159,7 +159,6 @@ document.getElementById('reset').addEventListener('click', () => {
 
             getNeighbors(particle, radius){
                 const neighbors = [];
-                const dist = [];
                 const all_rx = [];
                 const all_ry = [];
                 const radiusSq = radius * radius;
@@ -205,7 +204,7 @@ document.getElementById('reset').addEventListener('click', () => {
                                     ry = ry > 0 ? ry - simHeight : ry + simHeight;
                                 }
 
-                                dist = rx * rx + ry * ry;
+                                let dist = rx * rx + ry * ry;
 
                                 if (dist < radiusSq){
                                     neighbors.push(other);
@@ -280,7 +279,7 @@ document.getElementById('reset').addEventListener('click', () => {
 
         function force(r, a, beta=0.3){
             if (r < beta) {
-                return (r / beta - 1) * sim.repulsionScale;
+                return (1 - r / beta) * sim.repulsionScale;
             }
             else if (r > beta && r < 1) {
                 return a * (1 - (Math.abs(2 * r - 1 - beta)) / (1 - beta));
