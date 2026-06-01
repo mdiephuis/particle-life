@@ -241,13 +241,18 @@ document.getElementById('reset').addEventListener('click', () => {
         // random phase per matrix cell
         var lfoPhaseMatrix = Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => Math.random() * 2 * Math.PI));
 
-        var attractionMatrix = [
-            [ 0.0,   0.7,  -0.5,   0.3],
-            [-0.6,   0.0,   0.8,  -0.2],
-            [ 0.4,  -0.7,   0.0,   0.6],
-            [ 0.2,   0.5,  -0.4,   0.0]
-        ];
-
+        var attractionMatrix = [];
+        for (let i = 0; i < 4; i++) {
+            attractionMatrix[i] = [];
+            for (let j = 0; j < 4; j++) {
+                if (i !== j) {
+                    attractionMatrix[i][j] = Math.random() * 2 - 1;  // -1 to 1
+                }
+                else {
+                    attractionMatrix[i][j] = 0; // no self-interaction
+                }
+            }
+        }
 
         function getRandomInt(min, max) {
             min = Math.ceil(min);
@@ -264,6 +269,7 @@ document.getElementById('reset').addEventListener('click', () => {
         function force(r, a, beta=0.3){
             // r is normalized (r / sim.rmax)
             // repulsion (r <= beta) -> negative value so that `fx -= (rx/r)*f` produces repulsion
+            // note: no a parameter for repulsion, it's always scaled by sim.repulsionScale
             if (r <= beta) {
                 return -(1 - r / beta) * sim.repulsionScale;
             }
