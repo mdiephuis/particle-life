@@ -274,7 +274,7 @@ document.getElementById('reset').addEventListener('click', () => {
             // repulsion (r <= beta) -> negative value so that `fx -= (rx/r)*f` produces repulsion
             // note: no a parameter for repulsion, it's always scaled by sim.repulsionScale
             if (r <= beta) {
-                return -(1 - r / beta) * sim.repulsionScale;
+                return a * (1 - Math.abs(2*r - 1 - beta) / (1 - beta));
             }
             // attraction ramps from 0 at r=beta to `a` at r=1
             else if (r <= 1) {
