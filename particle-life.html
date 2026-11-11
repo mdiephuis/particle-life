@@ -357,7 +357,10 @@ document.getElementById('reset').addEventListener('click', () => {
                     p.velocity.x = (p.velocity.x / speed) * sim.maxSpeed;
                     p.velocity.y = (p.velocity.y / speed) * sim.maxSpeed;
                 }
-                // update position
+            }
+            
+            // update position in sep loop
+            for (let p of sim.particles) {
                 p.position.x += p.velocity.x * sim.dt;
                 p.position.y += p.velocity.y * sim.dt;
 
