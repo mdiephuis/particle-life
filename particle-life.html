@@ -131,10 +131,13 @@ document.getElementById('reset').addEventListener('click', () => {
 
         class SpatialHash {
             // Toroidal world
-            constructor(cellSize, worldWidth, worldHeight){
-                this.cellSize = cellSize;
-                this.cols = Math.ceil(worldWidth / cellSize);
-                this.rows = Math.ceil(worldHeight / cellSize);
+            constructor(rmax, worldWidth, worldHeight){
+                const minCellSize = rmax;
+                this.cellSize = minCellSize;
+                this.cols = Math.max(1, Math.floor(worldWidth  / minCellSize));
+                this.rows = Math.max(1, Math.floor(worldHeight / minCellSize));
+                this.cellW = worldWidth  / this.cols;
+                this.cellH = worldHeight / this.rows;
                 this.grid = {};
             }
             
@@ -142,8 +145,8 @@ document.getElementById('reset').addEventListener('click', () => {
                 // Wrap coordinates first
                 x = ((x % simWidth) + simWidth) % simWidth;
                 y = ((y % simHeight) + simHeight) % simHeight;
-                const col = Math.floor(x / this.cellSize);
-                const row = Math.floor(y / this.cellSize);
+                const col = Math.floor(x / this.cellW);
+                const row = Math.floor(y / this.cellH);
                 return `${col},${row}`;
             }
             
@@ -169,8 +172,8 @@ document.getElementById('reset').addEventListener('click', () => {
                 let px = ((particle.position.x % simWidth) + simWidth) % simWidth;
                 let py = ((particle.position.y % simHeight) + simHeight) % simHeight;
 
-                const centerCol = Math.floor(px / this.cellSize);
-                const centerRow = Math.floor(py / this.cellSize);
+                const centerCol = Math.floor(px / this.cellW);
+                const centerRow = Math.floor(py / this.cellH);
                 
                 for (let dx = -numCells; dx <= numCells; dx++){
                     for (let dy = -numCells; dy <= numCells; dy++){
