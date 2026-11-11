@@ -31,7 +31,7 @@ document.getElementById('forceScale').addEventListener('input', (e) => {
 
 document.getElementById('repulsionScale').addEventListener('input', (e) => {
     sim.repulsionScale = parseInt(e.target.value) / 100;
-    document.getElementById('repulsionScaleVal').textContent = sim.repulsionScale;
+    document.getElementById('repulsionScaleVal').textContent = sim.repulsionScale.toFixed(2);
 });
 
 document.getElementById('damping').addEventListener('input', (e) => {
